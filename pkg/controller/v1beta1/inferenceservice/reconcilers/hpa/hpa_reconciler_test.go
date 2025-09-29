@@ -413,12 +413,43 @@ func TestCreateHPA(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := createHPA(tt.args.objectMeta, tt.args.componentExt)
+			got := createHPA(tt.args.objectMeta, tt.args.componentExt, constants.DeploymentTargetTypeDeployment)
 			if diff := cmp.Diff(tt.expected, got); diff != "" {
 				t.Errorf("Test %q unexpected hpa (-want +got): %v", tt.name, diff)
 			}
 		})
 	}
+
+	t.Run("rollout target", func(t *testing.T) {
+		meta := metav1.ObjectMeta{Name: "rollout-component", Namespace: "default"}
+		got := createHPA(meta, nil, constants.DeploymentTargetTypeRollout)
+		expected := &autoscalingv2.HorizontalPodAutoscaler{
+			ObjectMeta: meta,
+			Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+				ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+					APIVersion: "argoproj.io/v1alpha1",
+					Kind:       "Rollout",
+					Name:       "rollout-component",
+				},
+				MinReplicas: ptr.To(defaultMinReplicas),
+				MaxReplicas: defaultMinReplicas,
+				Metrics: []autoscalingv2.MetricSpec{{
+					Type: autoscalingv2.ResourceMetricSourceType,
+					Resource: &autoscalingv2.ResourceMetricSource{
+						Name: corev1.ResourceCPU,
+						Target: autoscalingv2.MetricTarget{
+							Type:               autoscalingv2.UtilizationMetricType,
+							AverageUtilization: &defaultUtilization,
+						},
+					},
+				}},
+				Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
+			},
+		}
+		if diff := cmp.Diff(expected, got); diff != "" {
+			t.Errorf("rollout target unexpected hpa (-want +got): %v", diff)
+		}
+	})
 }
 
 func TestSemanticHPAEquals(t *testing.T) {

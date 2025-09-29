@@ -52,12 +52,13 @@ func NewServiceReconciler(client client.Client,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, multiNodeEnabled bool,
+	deploymentTarget constants.DeploymentTargetType,
 	serviceConfig *v1beta1.ServiceConfig,
 ) *ServiceReconciler {
 	return &ServiceReconciler{
 		client:       client,
 		scheme:       scheme,
-		ServiceList:  createService(componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
+		ServiceList:  createService(componentMeta, componentExt, podSpec, multiNodeEnabled, deploymentTarget, serviceConfig),
 		componentExt: componentExt,
 	}
 }
@@ -78,7 +79,7 @@ func getAppProtocol(port corev1.ContainerPort) *string {
 }
 
 func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, multiNodeEnabled bool, serviceConfig *v1beta1.ServiceConfig,
+	podSpec *corev1.PodSpec, multiNodeEnabled bool, deploymentTarget constants.DeploymentTargetType, serviceConfig *v1beta1.ServiceConfig,
 ) []*corev1.Service {
 	var svcList []*corev1.Service
 	var isWorkerContainer bool
@@ -92,19 +93,33 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 	}
 
 	if !multiNodeEnabled {
-		// If multiNodeEnabled is false, only defaultSvc will be created.
 		defaultSvc := createDefaultSvc(componentMeta, componentExt, podSpec, serviceConfig)
 		svcList = append(svcList, defaultSvc)
+		if deploymentTarget == constants.DeploymentTargetTypeRollout {
+			svcList = append(svcList, createCanarySvc(componentMeta, defaultSvc))
+		}
 	} else if multiNodeEnabled && !isWorkerContainer {
-		// If multiNodeEnabled is true, both defaultSvc and headSvc will be created.
 		defaultSvc := createDefaultSvc(componentMeta, componentExt, podSpec, serviceConfig)
 		svcList = append(svcList, defaultSvc)
+		if deploymentTarget == constants.DeploymentTargetTypeRollout {
+			svcList = append(svcList, createCanarySvc(componentMeta, defaultSvc))
+		}
 
 		headSvc := createHeadlessSvc(componentMeta)
 		svcList = append(svcList, headSvc)
 	}
 
 	return svcList
+}
+
+func createCanarySvc(componentMeta metav1.ObjectMeta, base *corev1.Service) *corev1.Service {
+	canary := base.DeepCopy()
+	canary.Name = componentMeta.Name + "-canary"
+	canary.ResourceVersion = ""
+	canary.UID = ""
+	canary.CreationTimestamp = metav1.Time{}
+	canary.ManagedFields = nil
+	return canary
 }
 
 func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,

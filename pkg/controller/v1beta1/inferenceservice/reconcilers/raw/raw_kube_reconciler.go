@@ -27,6 +27,7 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/otel"
 	service "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/service"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -44,7 +45,7 @@ var log = logf.Log.WithName("RawKubeReconciler")
 type RawKubeReconciler struct {
 	client        client.Client
 	scheme        *runtime.Scheme
-	Deployment    *deployment.DeploymentReconciler
+	Workload      deployment.WorkloadReconciler
 	Service       *service.ServiceReconciler
 	Scaler        *autoscaler.AutoscalerReconciler
 	OtelCollector *otel.OtelReconciler
@@ -90,7 +91,15 @@ func NewRawKubeReconciler(ctx context.Context,
 		}
 	}
 
-	as, err := autoscaler.NewAutoscalerReconciler(client, scheme, componentMeta, componentExt, isvcConfigMap)
+	deployConfig, err := v1beta1.NewDeployConfig(isvcConfigMap)
+	if err != nil {
+		log.Error(err, "failed to get deploy config")
+		deployConfig = nil // Use nil if config is not available
+	}
+
+	deploymentTarget := isvcutils.GetDeploymentTarget(componentMeta.Annotations, deployConfig)
+
+	as, err := autoscaler.NewAutoscalerReconciler(client, scheme, componentMeta, componentExt, deploymentTarget, isvcConfigMap)
 	if err != nil {
 		return nil, err
 	}
@@ -114,14 +123,13 @@ func NewRawKubeReconciler(ctx context.Context,
 		log.Error(err1, "failed to get service config")
 	}
 
-	// Get deploy config
-	deployConfig, err := v1beta1.NewDeployConfig(isvcConfigMap)
-	if err != nil {
-		log.Error(err, "failed to get deploy config")
-		deployConfig = nil // Use nil if config is not available
+	var workload deployment.WorkloadReconciler
+	switch deploymentTarget {
+	case constants.DeploymentTargetTypeRollout:
+		workload, err = deployment.NewRolloutReconciler(client, scheme, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec, deployConfig)
+	default:
+		workload, err = deployment.NewDeploymentReconciler(client, scheme, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec, deployConfig)
 	}
-
-	deployment, err := deployment.NewDeploymentReconciler(client, scheme, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec, deployConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -129,8 +137,8 @@ func NewRawKubeReconciler(ctx context.Context,
 	return &RawKubeReconciler{
 		client:        client,
 		scheme:        scheme,
-		Deployment:    deployment,
-		Service:       service.NewServiceReconciler(client, scheme, componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
+		Workload:      workload,
+		Service:       service.NewServiceReconciler(client, scheme, componentMeta, componentExt, podSpec, multiNodeEnabled, deploymentTarget, serviceConfig),
 		Scaler:        as,
 		OtelCollector: otelCollector,
 		URL:           url,
@@ -157,7 +165,7 @@ func (r *RawKubeReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment
 		}
 	}
 	// reconcile Deployment
-	deploymentList, err := r.Deployment.Reconcile(ctx)
+	deploymentList, err := r.Workload.Reconcile(ctx)
 	if err != nil {
 		return nil, err
 	}

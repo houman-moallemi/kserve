@@ -676,9 +676,8 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 		return errors.Wrapf(err, "fails to create NewRawKubeReconciler for predictor")
 	}
 
-	// set Deployment Controller
-	for _, deployment := range r.Deployment.DeploymentList {
-		if err := controllerutil.SetControllerReference(isvc, deployment, p.scheme); err != nil {
+	for _, workload := range r.Workload.ControllerObjects() {
+		if err := controllerutil.SetControllerReference(isvc, workload, p.scheme); err != nil {
 			return errors.Wrapf(err, "fails to set deployment owner reference for predictor")
 		}
 	}

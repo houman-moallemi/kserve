@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 
+	rolloutsv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	istio_networking "istio.io/api/networking/v1alpha3"
@@ -199,6 +200,19 @@ func main() {
 				setupLog.Error(err, "unable to add Istio v1beta1 APIs to scheme")
 				os.Exit(1)
 			}
+		}
+	}
+
+	rolloutFound, rolloutCheckErr := utils.IsCrdAvailable(cfg, rolloutsv1alpha1.SchemeGroupVersion.String(), constants.RolloutKind)
+	if rolloutCheckErr != nil {
+		setupLog.Error(rolloutCheckErr, "error when checking if Argo Rollout kind is available")
+		os.Exit(1)
+	}
+	if rolloutFound {
+		setupLog.Info("Setting up Argo Rollouts scheme")
+		if err := rolloutsv1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
+			setupLog.Error(err, "unable to add Argo Rollouts APIs to scheme")
+			os.Exit(1)
 		}
 	}
 

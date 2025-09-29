@@ -158,9 +158,8 @@ func handleInferenceGraphRawDeployment(ctx context.Context, cl client.Client, cl
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "fails to create NewRawKubeReconciler for inference graph")
 	}
-	// set Deployment Controller
-	for _, deployments := range reconciler.Deployment.DeploymentList {
-		if err := controllerutil.SetControllerReference(graph, deployments, scheme); err != nil {
+	for _, workload := range reconciler.Workload.ControllerObjects() {
+		if err := controllerutil.SetControllerReference(graph, workload, scheme); err != nil {
 			return nil, reconciler.URL, errors.Wrapf(err, "fails to set deployment owner reference for inference graph")
 		}
 	}

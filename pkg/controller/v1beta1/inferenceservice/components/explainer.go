@@ -157,8 +157,8 @@ func (e *Explainer) reconcileExplainerRawDeployment(ctx context.Context, isvc *v
 		return errors.Wrapf(err, "fails to create NewRawKubeReconciler for explainer")
 	}
 	// set Deployment Controller
-	for _, deployment := range r.Deployment.DeploymentList {
-		if err := controllerutil.SetControllerReference(isvc, deployment, e.scheme); err != nil {
+	for _, workload := range r.Workload.ControllerObjects() {
+		if err := controllerutil.SetControllerReference(isvc, workload, e.scheme); err != nil {
 			return errors.Wrapf(err, "fails to set deployment owner reference for explainer")
 		}
 	}

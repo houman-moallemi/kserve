@@ -47,8 +47,9 @@ func NewHPAReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
+	deploymentTarget constants.DeploymentTargetType,
 ) (*HPAReconciler, error) {
-	hpa := createHPA(componentMeta, componentExt)
+	hpa := createHPA(componentMeta, componentExt, deploymentTarget)
 	return &HPAReconciler{
 		client:       client,
 		scheme:       scheme,
@@ -145,6 +146,7 @@ func getHPAMetrics(componentExt *v1beta1.ComponentExtensionSpec) []autoscalingv2
 
 func createHPA(componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
+	deploymentTarget constants.DeploymentTargetType,
 ) *autoscalingv2.HorizontalPodAutoscaler {
 	var minReplicas int32
 	if componentExt == nil || componentExt.MinReplicas == nil || (*componentExt.MinReplicas) < constants.DefaultMinReplicas {
@@ -161,18 +163,28 @@ func createHPA(componentMeta metav1.ObjectMeta,
 		maxReplicas = minReplicas
 	}
 	metrics := getHPAMetrics(componentExt)
+
+	scaleTargetRef := autoscalingv2.CrossVersionObjectReference{
+		Name: componentMeta.Name,
+	}
+
+	switch deploymentTarget {
+	case constants.DeploymentTargetTypeRollout:
+		scaleTargetRef.APIVersion = "argoproj.io/v1alpha1"
+		scaleTargetRef.Kind = "Rollout"
+	default:
+		scaleTargetRef.APIVersion = "apps/v1"
+		scaleTargetRef.Kind = "Deployment"
+	}
+
 	hpa := &autoscalingv2.HorizontalPodAutoscaler{
 		ObjectMeta: componentMeta,
 		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
-			ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
-				APIVersion: "apps/v1",
-				Kind:       "Deployment",
-				Name:       componentMeta.Name,
-			},
-			MinReplicas: &minReplicas,
-			MaxReplicas: maxReplicas,
-			Metrics:     metrics,
-			Behavior:    &autoscalingv2.HorizontalPodAutoscalerBehavior{},
+			ScaleTargetRef: scaleTargetRef,
+			MinReplicas:    &minReplicas,
+			MaxReplicas:    maxReplicas,
+			Metrics:        metrics,
+			Behavior:       &autoscalingv2.HorizontalPodAutoscalerBehavior{},
 		},
 	}
 	return hpa

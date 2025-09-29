@@ -186,8 +186,8 @@ func (p *Transformer) reconcileTransformerRawDeployment(ctx context.Context, isv
 		return errors.Wrapf(err, "fails to create NewRawKubeReconciler for transformer")
 	}
 	// set Deployment Controller
-	for _, deployment := range r.Deployment.DeploymentList {
-		if err := controllerutil.SetControllerReference(isvc, deployment, p.scheme); err != nil {
+	for _, workload := range r.Workload.ControllerObjects() {
+		if err := controllerutil.SetControllerReference(isvc, workload, p.scheme); err != nil {
 			return errors.Wrapf(err, "fails to set deployment owner reference for transformer")
 		}
 	}

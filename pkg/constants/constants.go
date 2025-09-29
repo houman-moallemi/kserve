@@ -101,6 +101,7 @@ const (
 var (
 	InferenceServiceGKEAcceleratorAnnotationKey = KServeAPIGroupName + "/gke-accelerator"
 	DeploymentMode                              = KServeAPIGroupName + "/deploymentMode"
+	DeploymentTarget                            = KServeAPIGroupName + "/deploymentTarget"
 	EnableRoutingTagAnnotationKey               = KServeAPIGroupName + "/enable-tag-routing"
 	DisableLocalModelKey                        = KServeAPIGroupName + "/disable-localmodel"
 	AutoscalerClass                             = KServeAPIGroupName + "/autoscalerClass"
@@ -464,6 +465,14 @@ const (
 	ModelMeshDeployment DeploymentModeType = "ModelMesh"
 )
 
+type DeploymentTargetType string
+
+const (
+	DeploymentTargetTypeDeployment DeploymentTargetType = "Deployment"
+	DeploymentTargetTypeRollout    DeploymentTargetType = "Rollout"
+	DefaultDeploymentTarget                             = DeploymentTargetTypeDeployment
+)
+
 const (
 	DefaultNSKnativeServing = "knative-serving"
 )
@@ -548,6 +557,7 @@ const (
 	HTTPRouteKind           = "HTTPRoute"
 	GatewayKind             = "Gateway"
 	ServiceKind             = "Service"
+	RolloutKind             = "Rollout"
 	KedaScaledObjectKind    = "ScaledObject"
 	OpenTelemetryCollector  = "OpenTelemetryCollector"
 )

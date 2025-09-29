@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"strings"
 
+	rolloutsv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	"github.com/go-logr/logr"
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
@@ -71,6 +72,8 @@ import (
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=clusterstoragecontainers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelcaches,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=argoproj.io,resources=rollouts,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=argoproj.io,resources=rollouts/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=inferenceservices/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=get;list;watch;create;update;patch;delete
@@ -512,6 +515,11 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		return err
 	}
 
+	rolloutFound, err := utils.IsCrdAvailable(r.ClientConfig, rolloutsv1alpha1.SchemeGroupVersion.String(), constants.RolloutKind)
+	if err != nil {
+		return err
+	}
+
 	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1beta1.InferenceService{}, "spec.predictor.model.runtime", func(rawObj client.Object) []string {
 		isvc, ok := rawObj.(*v1beta1.InferenceService)
 		if !ok {
@@ -555,6 +563,12 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		For(&v1beta1.InferenceService{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{})
+
+	if rolloutFound {
+		ctrlBuilder = ctrlBuilder.Owns(&rolloutsv1alpha1.Rollout{})
+	} else {
+		r.Log.Info("The InferenceService controller won't watch argoproj.io/v1alpha1/Rollout resources because the CRD is not available.")
+	}
 
 	if ksvcFound {
 		ctrlBuilder = ctrlBuilder.Owns(&knservingv1.Service{})

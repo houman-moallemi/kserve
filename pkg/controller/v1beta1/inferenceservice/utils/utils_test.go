@@ -2400,3 +2400,54 @@ func TestMergeServingRuntimeAndInferenceServiceSpecs(t *testing.T) {
 		})
 	}
 }
+
+func TestGetDeploymentTarget(t *testing.T) {
+	tests := []struct {
+		name        string
+		annotations map[string]string
+		config      *DeployConfig
+		want        constants.DeploymentTargetType
+	}{
+		{
+			name: "annotation selects rollout",
+			annotations: map[string]string{
+				constants.DeploymentTarget: string(constants.DeploymentTargetTypeRollout),
+			},
+			config: nil,
+			want:   constants.DeploymentTargetTypeRollout,
+		},
+		{
+			name:        "deploy config default rollout",
+			annotations: nil,
+			config: &DeployConfig{
+				DefaultDeploymentTarget: string(constants.DeploymentTargetTypeRollout),
+			},
+			want: constants.DeploymentTargetTypeRollout,
+		},
+		{
+			name: "invalid annotation falls back to config",
+			annotations: map[string]string{
+				constants.DeploymentTarget: "unsupported",
+			},
+			config: &DeployConfig{
+				DefaultDeploymentTarget: string(constants.DeploymentTargetTypeDeployment),
+			},
+			want: constants.DeploymentTargetTypeDeployment,
+		},
+		{
+			name:        "nil config uses repository default",
+			annotations: nil,
+			config:      nil,
+			want:        constants.DefaultDeploymentTarget,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GetDeploymentTarget(tt.annotations, tt.config)
+			if got != tt.want {
+				t.Errorf("GetDeploymentTarget() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
