@@ -203,7 +203,7 @@ func main() {
 		}
 	}
 
-	rolloutFound, rolloutCheckErr := utils.IsCrdAvailable(cfg, rolloutsv1alpha1.SchemeGroupVersion.String(), "Rollout")
+	rolloutFound, rolloutCheckErr := utils.IsCrdAvailable(cfg, rolloutsv1alpha1.SchemeGroupVersion.String(), constants.RolloutKind)
 	if rolloutCheckErr != nil {
 		setupLog.Error(rolloutCheckErr, "error when checking if Argo Rollout kind is available")
 		os.Exit(1)

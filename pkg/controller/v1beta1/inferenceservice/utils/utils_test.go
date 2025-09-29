@@ -2405,7 +2405,7 @@ func TestGetDeploymentTarget(t *testing.T) {
 	tests := []struct {
 		name        string
 		annotations map[string]string
-		config      *v1beta1.DeployConfig
+		config      *DeployConfig
 		want        constants.DeploymentTargetType
 	}{
 		{
@@ -2419,7 +2419,7 @@ func TestGetDeploymentTarget(t *testing.T) {
 		{
 			name:        "deploy config default rollout",
 			annotations: nil,
-			config: &v1beta1.DeployConfig{
+			config: &DeployConfig{
 				DefaultDeploymentTarget: string(constants.DeploymentTargetTypeRollout),
 			},
 			want: constants.DeploymentTargetTypeRollout,
@@ -2429,7 +2429,7 @@ func TestGetDeploymentTarget(t *testing.T) {
 			annotations: map[string]string{
 				constants.DeploymentTarget: "unsupported",
 			},
-			config: &v1beta1.DeployConfig{
+			config: &DeployConfig{
 				DefaultDeploymentTarget: string(constants.DeploymentTargetTypeDeployment),
 			},
 			want: constants.DeploymentTargetTypeDeployment,
