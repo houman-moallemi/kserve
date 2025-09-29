@@ -135,7 +135,60 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					},
 				},
 			},
-			nil,
+		},
+		"default-rollout": {
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default-predictor",
+					Namespace: "default-predictor-namespace",
+					Labels: map[string]string{
+						constants.AutoscalerClass: string(constants.DefaultAutoscalerClass),
+						constants.DeploymentMode:  string(constants.Standard),
+					},
+					Annotations: map[string]string{
+						"annotation": "annotation-value",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "default-predictor",
+							Protocol:   corev1.ProtocolTCP,
+							Port:       80,
+							TargetPort: intstr.IntOrString{IntVal: 8080},
+						},
+					},
+					Selector: map[string]string{
+						constants.RawDeploymentAppLabel: "isvc.default-predictor",
+					},
+				},
+			},
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default-predictor-canary",
+					Namespace: "default-predictor-namespace",
+					Labels: map[string]string{
+						constants.AutoscalerClass: string(constants.DefaultAutoscalerClass),
+						constants.DeploymentMode:  string(constants.Standard),
+					},
+					Annotations: map[string]string{
+						"annotation": "annotation-value",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "default-predictor",
+							Protocol:   corev1.ProtocolTCP,
+							Port:       80,
+							TargetPort: intstr.IntOrString{IntVal: 8080},
+						},
+					},
+					Selector: map[string]string{
+						constants.RawDeploymentAppLabel: "isvc.default-predictor",
+					},
+				},
+			},
 		},
 		"multiNode-service": {
 			&corev1.Service{
@@ -196,6 +249,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 	tests := []struct {
 		name     string
 		args     args
+		target   constants.DeploymentTargetType
 		expected []*corev1.Service
 	}{
 		{
@@ -206,7 +260,19 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				podSpec:          testInput["default-service"].podSpec,
 				multiNodeEnabled: testInput["default-service"].multiNodeEnabled,
 			},
+			target:   constants.DeploymentTargetTypeDeployment,
 			expected: expectedServices["default-service"],
+		},
+		{
+			name: "default service rollout target",
+			args: args{
+				componentMeta:    testInput["default-service"].componentMeta,
+				componentExt:     testInput["default-service"].componentExt,
+				podSpec:          testInput["default-service"].podSpec,
+				multiNodeEnabled: testInput["default-service"].multiNodeEnabled,
+			},
+			target:   constants.DeploymentTargetTypeRollout,
+			expected: expectedServices["default-rollout"],
 		},
 		{
 			name: "multiNode service",
@@ -216,12 +282,13 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				podSpec:          testInput["multiNode-service"].podSpec,
 				multiNodeEnabled: testInput["multiNode-service"].multiNodeEnabled,
 			},
+			target:   constants.DeploymentTargetTypeDeployment,
 			expected: expectedServices["multiNode-service"],
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := createService(tt.args.componentMeta, tt.args.componentExt, tt.args.podSpec, tt.args.multiNodeEnabled, emptyServiceConfig)
+			got := createService(tt.args.componentMeta, tt.args.componentExt, tt.args.podSpec, tt.args.multiNodeEnabled, tt.target, emptyServiceConfig)
 			for i, service := range got {
 				if diff := cmp.Diff(tt.expected[i], service); diff != "" {
 					t.Errorf("Test %q unexpected service (-want +got): %v", tt.name, diff)
@@ -273,7 +340,7 @@ func runTestServiceCreate(serviceConfig *v1beta1.ServiceConfig, expectedClusterI
 	componentExt := &v1beta1.ComponentExtensionSpec{}
 	podSpec := &corev1.PodSpec{}
 
-	service := createService(componentMeta, componentExt, podSpec, false, serviceConfig)
+	service := createService(componentMeta, componentExt, podSpec, false, constants.DeploymentTargetTypeDeployment, serviceConfig)
 	assert.Equal(t, componentMeta, service[0].ObjectMeta, "Expected ObjectMeta to be equal")
 	assert.Equal(t, map[string]string{"app": "isvc.test-service"}, service[0].Spec.Selector, "Expected Selector to be equal")
 	assert.Equal(t, expectedClusterIP, service[0].Spec.ClusterIP, "Expected ClusterIP to be equal")

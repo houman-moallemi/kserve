@@ -101,6 +101,7 @@ const (
 var (
 	InferenceServiceGKEAcceleratorAnnotationKey = KServeAPIGroupName + "/gke-accelerator"
 	DeploymentMode                              = KServeAPIGroupName + "/deploymentMode"
+	DeploymentTarget                            = KServeAPIGroupName + "/deploymentTarget"
 	EnableRoutingTagAnnotationKey               = KServeAPIGroupName + "/enable-tag-routing"
 	DisableLocalModelKey                        = KServeAPIGroupName + "/disable-localmodel"
 	AutoscalerClass                             = KServeAPIGroupName + "/autoscalerClass"
@@ -462,6 +463,14 @@ const (
 	Standard            DeploymentModeType = "Standard"
 	DefaultDeployment   DeploymentModeType = Standard
 	ModelMeshDeployment DeploymentModeType = "ModelMesh"
+)
+
+type DeploymentTargetType string
+
+const (
+	DeploymentTargetTypeDeployment DeploymentTargetType = "Deployment"
+	DeploymentTargetTypeRollout    DeploymentTargetType = "Rollout"
+	DefaultDeploymentTarget                             = DeploymentTargetTypeDeployment
 )
 
 const (

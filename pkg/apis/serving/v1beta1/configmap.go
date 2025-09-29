@@ -130,6 +130,7 @@ type IngressConfig struct {
 // +kubebuilder:object:generate=false
 type DeployConfig struct {
 	DefaultDeploymentMode     string                     `json:"defaultDeploymentMode,omitempty"`
+	DefaultDeploymentTarget   string                     `json:"defaultDeploymentTarget,omitempty"`
 	DeploymentRolloutStrategy *DeploymentRolloutStrategy `json:"deploymentRolloutStrategy,omitempty"`
 }
 
@@ -373,6 +374,17 @@ func NewDeployConfig(isvcConfigMap *corev1.ConfigMap) (*DeployConfig, error) {
 			return nil, errors.New("invalid deployment mode. Supported modes are Knative," +
 				" Standard and ModelMesh")
 		}
+
+		if deployConfig.DefaultDeploymentTarget == "" {
+			deployConfig.DefaultDeploymentTarget = string(constants.DefaultDeploymentTarget)
+		}
+
+		if deployConfig.DefaultDeploymentTarget != string(constants.DeploymentTargetTypeDeployment) &&
+			deployConfig.DefaultDeploymentTarget != string(constants.DeploymentTargetTypeRollout) {
+			return nil, errors.New("invalid deployment target. Supported targets are Deployment and Rollout")
+		}
+	} else {
+		deployConfig.DefaultDeploymentTarget = string(constants.DefaultDeploymentTarget)
 	}
 	return deployConfig, nil
 }

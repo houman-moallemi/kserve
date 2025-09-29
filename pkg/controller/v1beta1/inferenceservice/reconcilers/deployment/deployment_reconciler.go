@@ -46,10 +46,10 @@ var log = logf.Log.WithName("DeploymentReconciler")
 
 // DeploymentReconciler reconciles the raw kubernetes deployment resource
 type DeploymentReconciler struct {
-	client         kclient.Client
-	scheme         *runtime.Scheme
-	DeploymentList []*appsv1.Deployment
-	componentExt   *v1beta1.ComponentExtensionSpec
+        client         kclient.Client
+        scheme         *runtime.Scheme
+        DeploymentList []*appsv1.Deployment
+        componentExt   *v1beta1.ComponentExtensionSpec
 }
 
 func NewDeploymentReconciler(client kclient.Client,
@@ -502,4 +502,12 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 		}
 	}
 	return r.DeploymentList, nil
+}
+
+func (r *DeploymentReconciler) ControllerObjects() []kclient.Object {
+        objs := make([]kclient.Object, 0, len(r.DeploymentList))
+        for _, dep := range r.DeploymentList {
+                objs = append(objs, dep)
+        }
+        return objs
 }

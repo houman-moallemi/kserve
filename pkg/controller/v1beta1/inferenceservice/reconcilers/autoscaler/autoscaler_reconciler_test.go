@@ -257,7 +257,7 @@ func TestNewAutoscalerReconciler(t *testing.T) {
 				}
 			}
 
-			ar, err := NewAutoscalerReconciler(nil, nil, meta, &v1beta1.ComponentExtensionSpec{}, configMap)
+			ar, err := NewAutoscalerReconciler(nil, nil, meta, &v1beta1.ComponentExtensionSpec{}, constants.DeploymentTargetTypeDeployment, configMap)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewAutoscalerReconciler() error = %v, wantErr %v", err, tt.wantErr)
 				return

@@ -236,7 +236,38 @@ func GetDeploymentMode(statusDeploymentMode string, annotations map[string]strin
 	}
 
 	// Finally, if an InferenceService is being created and does not explicitly specify a DeploymentMode
+	if deployConfig == nil || deployConfig.DefaultDeploymentMode == "" {
+		return constants.DefaultDeployment
+	}
 	return constants.DeploymentModeType(deployConfig.DefaultDeploymentMode)
+}
+
+// GetDeploymentTarget determines the workload API to use when reconciling standard (raw) deployments.
+// Annotation overrides are respected when present and valid; otherwise values fall back to the DeployConfig defaults.
+func GetDeploymentTarget(annotations map[string]string, deployConfig *v1beta1.DeployConfig) constants.DeploymentTargetType {
+	if annotations != nil {
+		if target, ok := annotations[constants.DeploymentTarget]; ok {
+			switch constants.DeploymentTargetType(target) {
+			case constants.DeploymentTargetTypeDeployment:
+				return constants.DeploymentTargetTypeDeployment
+			case constants.DeploymentTargetTypeRollout:
+				return constants.DeploymentTargetTypeRollout
+			}
+		}
+	}
+
+	if deployConfig != nil && deployConfig.DefaultDeploymentTarget != "" {
+		switch constants.DeploymentTargetType(deployConfig.DefaultDeploymentTarget) {
+		case constants.DeploymentTargetTypeRollout:
+			return constants.DeploymentTargetTypeRollout
+		case constants.DeploymentTargetTypeDeployment:
+			fallthrough
+		default:
+			return constants.DeploymentTargetTypeDeployment
+		}
+	}
+
+	return constants.DefaultDeploymentTarget
 }
 
 // MergeRuntimeContainers Merge the predictor or transformer Container struct with the runtime Container struct, allowing users

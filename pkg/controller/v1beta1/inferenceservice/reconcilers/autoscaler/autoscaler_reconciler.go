@@ -60,9 +60,10 @@ func NewAutoscalerReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
+	deploymentTarget constants.DeploymentTargetType,
 	configMap *corev1.ConfigMap,
 ) (*AutoscalerReconciler, error) {
-	as, err := createAutoscaler(client, scheme, componentMeta, componentExt, configMap)
+	as, err := createAutoscaler(client, scheme, componentMeta, componentExt, deploymentTarget, configMap)
 	if err != nil {
 		return nil, err
 	}
@@ -86,12 +87,13 @@ func getAutoscalerClass(metadata metav1.ObjectMeta) constants.AutoscalerClassTyp
 func createAutoscaler(client client.Client,
 	scheme *runtime.Scheme, componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
+	deploymentTarget constants.DeploymentTargetType,
 	configMap *corev1.ConfigMap,
 ) (Autoscaler, error) {
 	ac := getAutoscalerClass(componentMeta)
 	switch ac {
 	case constants.AutoscalerClassHPA, constants.AutoscalerClassExternal, constants.AutoscalerClassNone:
-		return hpa.NewHPAReconciler(client, scheme, componentMeta, componentExt)
+		return hpa.NewHPAReconciler(client, scheme, componentMeta, componentExt, deploymentTarget)
 	case constants.AutoscalerClassKeda:
 		return keda.NewKedaReconciler(client, scheme, componentMeta, componentExt, configMap)
 	default:
