@@ -119,13 +119,34 @@ func (r *RolloutReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment
 		case constants.CheckResultUpdate:
 			cur := existingRollout.DeepCopy()
 			mod := desiredRollout.DeepCopy()
+			currentStatus := existingRollout.Status
 			if mod.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassNone) {
 				mod.Spec.Replicas = nil
 				cur.Spec.Replicas = nil
 			}
 			opErr = r.client.Patch(ctx, mod, kclient.MergeFrom(cur))
 			if opErr == nil {
-				existingRollout = mod
+				refreshed := &v1alpha1.Rollout{}
+				if err := r.client.Get(ctx, types.NamespacedName{Namespace: desiredRollout.Namespace, Name: desiredRollout.Name}, refreshed); err == nil {
+					if len(refreshed.Status.Conditions) == 0 && len(currentStatus.Conditions) > 0 {
+						refreshed.Status = currentStatus
+					}
+					if refreshed.Status.ReadyReplicas == 0 && currentStatus.ReadyReplicas > 0 {
+						refreshed.Status.ReadyReplicas = currentStatus.ReadyReplicas
+					}
+					if refreshed.Status.Replicas == 0 && currentStatus.Replicas > 0 {
+						refreshed.Status.Replicas = currentStatus.Replicas
+					}
+					if refreshed.Status.UpdatedReplicas == 0 && currentStatus.UpdatedReplicas > 0 {
+						refreshed.Status.UpdatedReplicas = currentStatus.UpdatedReplicas
+					}
+					if refreshed.Status.AvailableReplicas == 0 && currentStatus.AvailableReplicas > 0 {
+						refreshed.Status.AvailableReplicas = currentStatus.AvailableReplicas
+					}
+					existingRollout = refreshed
+				} else {
+					existingRollout.Status = currentStatus
+				}
 			}
 		case constants.CheckResultDelete:
 			if existingRollout.GetDeletionTimestamp() == nil {
@@ -224,16 +245,16 @@ func convertRolloutCondition(cond v1alpha1.RolloutCondition) appsv1.DeploymentCo
 		deploymentCond.Type = appsv1.DeploymentAvailable
 	case v1alpha1.RolloutProgressing:
 		deploymentCond.Type = appsv1.DeploymentProgressing
-	case v1alpha1.RolloutDegraded:
+	case v1alpha1.RolloutReplicaFailure:
 		deploymentCond.Type = appsv1.DeploymentReplicaFailure
 	default:
 		deploymentCond.Type = appsv1.DeploymentConditionType(string(cond.Type))
 	}
 
 	switch cond.Status {
-	case v1alpha1.RolloutConditionStatusTrue:
+	case corev1.ConditionTrue:
 		deploymentCond.Status = corev1.ConditionTrue
-	case v1alpha1.RolloutConditionStatusFalse:
+	case corev1.ConditionFalse:
 		deploymentCond.Status = corev1.ConditionFalse
 	default:
 		deploymentCond.Status = corev1.ConditionUnknown
